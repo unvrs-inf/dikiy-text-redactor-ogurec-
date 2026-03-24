@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { DocumentFile } from '@/lib/types';
 import Spinner from '@/components/ui/Spinner';
 import PdfViewer from './PdfViewer';
 import DocxViewer from './DocxViewer';
+import SelectionToolbar from './SelectionToolbar';
 import { useSettings } from '@/hooks/useSettings';
+import { useTextSelection } from '@/hooks/useTextSelection';
 
 interface DocumentViewerProps {
   document: DocumentFile;
@@ -13,6 +15,8 @@ interface DocumentViewerProps {
   onUploadError: (error: string) => void;
   onUploadStart: () => void;
   onError: (message: string, type?: 'success' | 'error' | 'info') => void;
+  onAskAI?: (text: string) => void;
+  onEditWithAI?: (text: string, instruction: string) => void;
 }
 
 export default function DocumentViewer({
@@ -21,8 +25,11 @@ export default function DocumentViewer({
   onUploadError,
   onUploadStart,
   onError,
+  onAskAI,
+  onEditWithAI,
 }: DocumentViewerProps) {
   const { settings, getCredentialsBase64 } = useSettings();
+  const { selectedText, selectionRect, handleMouseUp, clearSelection } = useTextSelection();
 
   // Upload to GigaChat when document is loaded and we have credentials
   useEffect(() => {
@@ -57,8 +64,22 @@ export default function DocumentViewer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [document.file, settings]);
 
+  // Hide toolbar on outside click
+  const handleContainerClick = useCallback(
+    (e: React.MouseEvent) => {
+      // Don't clear if clicking on SelectionToolbar
+      const target = e.target as HTMLElement;
+      if (target.closest('[data-selection-toolbar]')) return;
+    },
+    []
+  );
+
   return (
-    <div className="relative flex flex-col h-full overflow-hidden">
+    <div
+      className="relative flex flex-col h-full overflow-hidden"
+      onMouseUp={handleMouseUp}
+      onClick={handleContainerClick}
+    >
       {/* Uploading overlay */}
       {document.isUploading && (
         <div className="absolute inset-0 bg-black/20 z-10 flex items-center justify-center">
@@ -73,7 +94,7 @@ export default function DocumentViewer({
 
       {/* Upload error banner */}
       {document.uploadError && (
-        <div className="bg-red-50 dark:bg-red-950 border-b border-red-200 dark:border-red-800 px-4 py-2">
+        <div className="bg-red-50 dark:bg-red-950 border-b border-red-200 dark:border-red-800 px-4 py-2 flex-shrink-0">
           <p className="text-sm text-red-600 dark:text-red-400">
             Ошибка загрузки в GigaChat: {document.uploadError}
           </p>
@@ -85,6 +106,25 @@ export default function DocumentViewer({
         <PdfViewer file={document.file} />
       ) : (
         <DocxViewer file={document.file} />
+      )}
+
+      {/* Selection Toolbar */}
+      {selectedText && selectionRect && (
+        <div data-selection-toolbar>
+          <SelectionToolbar
+            rect={selectionRect}
+            selectedText={selectedText}
+            onAskAI={(text) => {
+              onAskAI?.(text);
+              clearSelection();
+            }}
+            onEdit={(text, instruction) => {
+              onEditWithAI?.(text, instruction);
+              clearSelection();
+            }}
+            onClose={clearSelection}
+          />
+        </div>
       )}
     </div>
   );

@@ -6,6 +6,7 @@ import Toolbar from './Toolbar';
 import FileUpload from '@/components/upload/FileUpload';
 import Toast, { useToast } from '@/components/ui/Toast';
 import { useDocument } from '@/hooks/useDocument';
+import { useTextSelection } from '@/hooks/useTextSelection';
 
 // Lazy-loaded heavy components
 import dynamic from 'next/dynamic';
@@ -31,14 +32,18 @@ export default function AppLayout() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Text selection state lifted to AppLayout to bridge DocumentViewer ↔ ChatPanel
+  const [chatSelectedText, setChatSelectedText] = useState<string | null>(null);
+  const { handleMouseUp, clearSelection } = useTextSelection();
+
   const handleFile = useCallback(
     (file: File) => {
       const err = loadDocument(file);
       if (err) {
         addToast(err, 'error');
       } else {
-        // Когда документ загружен в виьювер, начинаем загрузку в GigaChat
         setActiveTab('document');
+        setChatSelectedText(null);
       }
     },
     [loadDocument, addToast]
@@ -60,6 +65,49 @@ export default function AppLayout() {
     if (file) handleFile(file);
     e.target.value = '';
   };
+
+  const handleAskAI = useCallback(
+    (text: string) => {
+      setChatSelectedText(text);
+      clearSelection();
+      // On mobile, switch to chat tab
+      setActiveTab('chat');
+    },
+    [clearSelection]
+  );
+
+  const handleEditWithAI = useCallback(
+    (text: string, instruction: string) => {
+      const prompt = `Отредактируй следующий фрагмент текста согласно инструкции.\nВерни ТОЛЬКО отредактированный текст без пояснений и комментариев.\n\nФрагмент:\n---\n${text}\n---\n\nИнструкция: ${instruction}`;
+      setChatSelectedText(undefined as unknown as string);
+      // Pass the edit prompt as a direct message
+      // We use a special prefix that ChatPanel can detect
+      setChatSelectedText(`__EDIT__${prompt}`);
+      clearSelection();
+      setActiveTab('chat');
+    },
+    [clearSelection]
+  );
+
+  const renderDocumentPanel = (withMouseUp = false) =>
+    document ? (
+      <div
+        className="flex flex-col h-full overflow-hidden"
+        onMouseUp={withMouseUp ? handleMouseUp : undefined}
+      >
+        <DocumentViewer
+          document={document}
+          onGigaChatFileId={setGigaChatFileId}
+          onUploadError={setUploadError}
+          onUploadStart={() => setUploading(true)}
+          onError={addToast}
+          onAskAI={handleAskAI}
+          onEditWithAI={handleEditWithAI}
+        />
+      </div>
+    ) : (
+      <FileUpload onFile={handleFile} onError={handleFileError} />
+    );
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden">
@@ -85,43 +133,33 @@ export default function AppLayout() {
         <div className="hidden md:flex flex-1 overflow-hidden">
           {/* Left panel: Document */}
           <div className="w-[60%] flex flex-col overflow-hidden border-r border-gray-200 dark:border-gray-700">
-            {document ? (
-              <DocumentViewer
-                document={document}
-                onGigaChatFileId={setGigaChatFileId}
-                onUploadError={setUploadError}
-                onUploadStart={() => setUploading(true)}
-                onError={addToast}
-              />
-            ) : (
-              <FileUpload onFile={handleFile} onError={handleFileError} />
-            )}
+            {renderDocumentPanel(true)}
           </div>
 
           {/* Right panel: Chat */}
           <div className="w-[40%] flex flex-col overflow-hidden">
-            <ChatPanel document={document} onError={addToast} />
+            <ChatPanel
+              document={document}
+              onError={addToast}
+              selectedText={chatSelectedText}
+              onClearSelection={() => setChatSelectedText(null)}
+            />
           </div>
         </div>
 
         {/* Mobile: tabs */}
         <div className="flex md:hidden flex-1 flex-col overflow-hidden">
           <div className="flex-1 overflow-hidden">
-            {activeTab === 'document' ? (
-              document ? (
-                <DocumentViewer
+            {activeTab === 'document'
+              ? renderDocumentPanel(true)
+              : (
+                <ChatPanel
                   document={document}
-                  onGigaChatFileId={setGigaChatFileId}
-                  onUploadError={setUploadError}
-                  onUploadStart={() => setUploading(true)}
                   onError={addToast}
+                  selectedText={chatSelectedText}
+                  onClearSelection={() => setChatSelectedText(null)}
                 />
-              ) : (
-                <FileUpload onFile={handleFile} onError={handleFileError} />
-              )
-            ) : (
-              <ChatPanel document={document} onError={addToast} />
-            )}
+              )}
           </div>
 
           {/* Mobile tab bar */}
