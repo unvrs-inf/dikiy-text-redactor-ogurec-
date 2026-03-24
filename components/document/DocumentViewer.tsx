@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { DocumentFile } from '@/lib/types';
 import Spinner from '@/components/ui/Spinner';
 import PdfViewer from './PdfViewer';
@@ -24,7 +24,7 @@ export default function DocumentViewer({
   onGigaChatFileId,
   onUploadError,
   onUploadStart,
-  onError,
+  onError: _onError, // kept for future use, currently unused
   onAskAI,
   onEditWithAI,
 }: DocumentViewerProps) {

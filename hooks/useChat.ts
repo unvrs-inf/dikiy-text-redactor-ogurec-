@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { ChatMessage, TokenUsage } from '@/lib/types';
+import { ChatMessage } from '@/lib/types';
 import { useGigaChat } from './useGigaChat';
 import { useTokenCounter } from './useTokenCounter';
 

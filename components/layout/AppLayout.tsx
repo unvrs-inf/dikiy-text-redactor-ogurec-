@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { FileText, MessageSquare } from 'lucide-react';
 import Toolbar from './Toolbar';
 import FileUpload from '@/components/upload/FileUpload';
 import Toast, { useToast } from '@/components/ui/Toast';
 import { useDocument } from '@/hooks/useDocument';
 import { useTextSelection } from '@/hooks/useTextSelection';
+import { useSettings } from '@/hooks/useSettings';
+import { useTheme } from '@/hooks/useTheme';
 
 // Lazy-loaded heavy components
 import dynamic from 'next/dynamic';
@@ -32,9 +34,26 @@ export default function AppLayout() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Theme
+  const { settings } = useSettings();
+  useTheme(settings?.theme);
+
   // Text selection state lifted to AppLayout to bridge DocumentViewer ↔ ChatPanel
   const [chatSelectedText, setChatSelectedText] = useState<string | null>(null);
   const { handleMouseUp, clearSelection } = useTextSelection();
+
+  // Hotkeys
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMod = e.ctrlKey || e.metaKey;
+      if (isMod && e.key === 'o') {
+        e.preventDefault();
+        fileInputRef.current?.click();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleFile = useCallback(
     (file: File) => {

@@ -40,24 +40,49 @@ export function useGigaChat() {
       setIsLoading(true);
       setError(null);
 
-      try {
-        const res = await fetch('/api/gigachat/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            credentials: getCredentialsBase64(),
-            scope: settings.gigachatScope,
-            clientId: settings.gigachatClientId,
-            model: settings.gigachatModel,
-            sessionId: params.sessionId,
-            messages: params.messages,
-            fileId: params.fileId,
-          }),
-        });
+      const reqBody = JSON.stringify({
+        credentials: getCredentialsBase64(),
+        scope: settings.gigachatScope,
+        clientId: settings.gigachatClientId,
+        model: settings.gigachatModel,
+        sessionId: params.sessionId,
+        messages: params.messages,
+        fileId: params.fileId,
+      });
 
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Ошибка запроса к GigaChat');
-        return data as { content: string; tokenUsage: TokenUsage };
+      // Retry up to 2 times for network/503 errors
+      let lastErr: Error = new Error('Неизвестная ошибка');
+      try {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            const res = await fetch('/api/gigachat/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: reqBody,
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+              const msg = data.error || 'Ошибка запроса к GigaChat';
+              // Only retry on 503/network errors
+              if (res.status === 503 && attempt < 2) {
+                await new Promise((r) => setTimeout(r, (attempt + 1) * 2000));
+                continue;
+              }
+              throw new Error(msg);
+            }
+            return data as { content: string; tokenUsage: TokenUsage };
+          } catch (err) {
+            lastErr = err instanceof Error ? err : new Error(String(err));
+            const isNetworkError = lastErr.message.includes('подключиться') || lastErr.message.includes('fetch');
+            if (isNetworkError && attempt < 2) {
+              await new Promise((r) => setTimeout(r, (attempt + 1) * 2000));
+              continue;
+            }
+            throw lastErr;
+          }
+        }
+        throw lastErr;
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Неизвестная ошибка';
         setError(msg);

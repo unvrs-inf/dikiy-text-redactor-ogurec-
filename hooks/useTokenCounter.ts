@@ -15,7 +15,7 @@ export function useTokenCounter() {
     try {
       const stored = localStorage.getItem(TOKEN_USAGE_STORAGE_KEY);
       if (stored) {
-        setStats(JSON.parse(stored) as TokenStats);
+        setStats(JSON.parse(stored) as TokenStats); // eslint-disable-line react-hooks/set-state-in-effect
       }
     } catch {
       // ignore

@@ -13,12 +13,12 @@ export function useSettings() {
     try {
       const stored = localStorage.getItem(SETTINGS_STORAGE_KEY);
       if (stored) {
-        setSettings(JSON.parse(stored) as AppSettings);
+        setSettings(JSON.parse(stored) as AppSettings); // eslint-disable-line react-hooks/set-state-in-effect
       }
     } catch {
       // ignore parse errors
     }
-    setIsLoaded(true);
+    setIsLoaded(true);  
   }, []);
 
   const saveSettings = useCallback((newSettings: AppSettings) => {

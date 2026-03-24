@@ -15,8 +15,8 @@ export default function DocxViewer({ file }: DocxViewerProps) {
 
   useEffect(() => {
     let cancelled = false;
-    setIsLoading(true);
-    setError(null);
+    setIsLoading(true); // eslint-disable-line react-hooks/set-state-in-effect
+    setError(null);  
 
     file
       .arrayBuffer()
