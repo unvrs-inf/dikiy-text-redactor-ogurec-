@@ -1,10 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  webpack: (config) => {
-    // Исправляет ошибку с canvas в react-pdf (pdf.js зависимость)
-    config.resolve.alias.canvas = false;
-    return config;
+  // Turbopack config (Next.js 16 default)
+  turbopack: {
+    resolveAlias: {
+      // Исправляет ошибку с canvas в react-pdf (pdf.js зависимость)
+      canvas: { browser: './empty-module.js' },
+    },
   },
 };
 
